@@ -2,9 +2,17 @@ name: Daily NBA Stats Scraper
 
 on:
   schedule:
-    # Tous les jours à 9h EST (14h UTC) 
+    # Tous les jours à 9h EST (14h UTC) pendant la saison NBA
     - cron: '0 14 * * *'
   workflow_dispatch: # Permet de lancer manuellement
+  push:
+    branches: [ main ]
+    paths: 
+      - 'scripts/daily-scraper.js'
+      - '.github/workflows/daily-nba-scraper.yml'
+
+permissions:
+  contents: write # Nécessaire pour pousser les changements
 
 jobs:
   scrape-nba-stats:
@@ -13,24 +21,91 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         
-    - name: Install dependencies
+    - name: Create directories
       run: |
-        # Aucune dépendance nécessaire ! Juste Node.js built-in
-        echo "No dependencies needed - using native fetch()"
+        mkdir -p scripts
+        mkdir -p data
+        
+    - name: Verify scraper script exists
+      run: |
+        if [ ! -f "scripts/daily-scraper.js" ]; then
+          echo "❌ scripts/daily-scraper.js not found!"
+          echo "📁 Current directory structure:"
+          find . -type f -name "*.js" -o -name "*.json" -o -name "*.yml" -o -name "*.yaml" | head -20
+          exit 1
+        fi
+        echo "✅ Scraper script found"
         
     - name: Run NBA Stats Scraper
-      run: node scripts/daily-scraper.js
-      
-    - name: Commit and push data
+      run: |
+        echo "🚀 Starting NBA stats scraper..."
+        node scripts/daily-scraper.js
+        echo "✅ Scraper completed"
+        
+    - name: Verify data was generated
+      run: |
+        echo "📁 Checking generated data files..."
+        ls -la data/
+        if [ -z "$(ls -A data/)" ]; then
+          echo "⚠️ No data files generated"
+          exit 1
+        fi
+        echo "✅ Data files generated successfully"
+        
+    - name: Configure Git
       run: |
         git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.name "GitHub Action Bot"
+        
+    - name: Commit and push data
+      run: |
         git add data/
-        git diff --staged --quiet || git commit -m "Daily NBA stats update: $(date +'%Y-%m-%d')"
-        git push
+        
+        # Vérifier s'il y a des changements
+        if git diff --staged --quiet; then
+          echo "ℹ️ No new data to commit"
+        else
+          echo "📊 New data found, committing..."
+          git commit -m "🏀 Daily NBA stats update: $(date +'%Y-%m-%d %H:%M UTC')"
+          git push
+          echo "✅ Data pushed to repository"
+        fi
+        
+    - name: Create summary
+      run: |
+        echo "## 🏀 NBA Stats Scraper Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Date:** $(date +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Generated Files:" >> $GITHUB_STEP_SUMMARY
+        for file in data/*.json; do
+          if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            filesize=$(du -h "$file" | cut -f1)
+            echo "- 📄 \`$filename\` ($filesize)" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        # Afficher un aperçu des données si possible
+        if [ -f "data/nba_top50_scorers_latest.json" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏆 Top 3 Scorers:" >> $GITHUB_STEP_SUMMARY
+          # Utiliser jq pour extraire les 3 premiers si disponible
+          if command -v jq &> /dev/null; then
+            node -e "
+              const fs = require('fs');
+              const data = JSON.parse(fs.readFileSync('data/nba_top50_scorers_latest.json', 'utf8'));
+              data.players.slice(0,3).forEach((p,i) => {
+                console.log(\`\${i+1}. **\${p.name}** - \${p.offensive_points_per_game?.toFixed(1) || 'N/A'} PPG (\${p.team || 'N/A'})\`);
+              });
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
