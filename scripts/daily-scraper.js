@@ -12,12 +12,12 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // Fonction pour fetch les données ESPN (adaptée pour Node.js)
-async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 50, season = CURRENT_SEASON) {
+async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 100, season = CURRENT_SEASON) {
     const params = new URLSearchParams({
         region: 'gb',
         lang: 'en',
         contentorigin: 'espn',
-        isqualified: 'true',
+        isqualified: 'false',
         page: '1',
         limit: limit.toString(),
         sort: sortBy,
