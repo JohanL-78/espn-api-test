@@ -133,7 +133,7 @@ async function scrapeTop50Scorers() {
     console.log('🏆 Starting NBA Top 50 Scorers scrape...');
     
     try {
-        const data = await fetchESPNData('offensive.avgPoints:desc', 50, CURRENT_SEASON);
+        const data = await fetchESPNData('offensive.avgPoints:desc', 100, CURRENT_SEASON);
         const globalCategories = data.categories || [];
         const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
         
