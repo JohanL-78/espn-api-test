@@ -3,117 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test ESPN API</title>
+    <title>🏀 NBA Stats Dashboard</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
         .container {
             background: white;
-            padding: 20px;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .last-update {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 12px;
             border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+        button.download { background: linear-gradient(135deg, #27ae60, #229954); }
+        button.clear { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .loading {
+            background: #e8f4fd;
+            color: #2980b9;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .summary-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        .summary-stat .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .summary-stat .label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .player-card {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            transition: all 0.3s ease;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .player {
-            border: 1px solid #ddd;
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 5px;
-            background: #fafafa;
+        .player-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .player-photo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #3498db;
+        }
+        .player-photo-placeholder {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .player-info {
+            flex: 1;
         }
         .player-name {
             font-size: 18px;
             font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
+            color: #2c3e50;
+            margin: 0;
         }
-        .stats {
+        .player-team {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin: 2px 0;
+        }
+        .player-rank {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .team-logo {
+            height: 35px;
+            width: auto;
+        }
+        .player-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
         }
-        .stat {
-            background: #e9e9e9;
+        .stat-box {
+            background: #f8f9fa;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 8px;
             text-align: center;
+            border-left: 4px solid #3498db;
+        }
+        .stat-box.points { border-left-color: #e74c3c; }
+        .stat-box.rebounds { border-left-color: #3498db; }
+        .stat-box.assists { border-left-color: #2ecc71; }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
         }
         .stat-label {
-            font-size: 12px;
-            color: #666;
-            display: block;
+            font-size: 11px;
+            color: #7f8c8d;
+            text-transform: uppercase;
         }
-        .stat-value {
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-        }
-        button {
-            background: #007cba;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px 5px;
-        }
-        button:hover {
-            background: #005a8b;
-        }
-        .loading {
+        
+        .additional-info {
             text-align: center;
-            padding: 20px;
-            color: #666;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ecf0f1;
+            font-size: 12px;
+            color: #95a5a6;
         }
-        .error {
-            background: #ffe6e6;
-            color: #d00;
+        
+        .file-list {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
             padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
+            margin: 20px 0;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .file-name {
+            font-weight: bold;
+            color: #495057;
+        }
+        .file-date {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        @media (max-width: 768px) {
+            .players-grid {
+                grid-template-columns: 1fr;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            button {
+                width: 200px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏀 ESPN NBA Top 50 Scorers 2024-25</h1>
-        
-        <div>
-            <button onclick="getTop50Scorers2024()">🏆 Top 50 Scorers 2024-25</button>
-            <button onclick="testTopRebounders()">Top Rebounders</button>
-            <button onclick="testTopAssists()">Top Assists</button>
-            <button onclick="clearResults()">Clear</button>
+        <div class="header">
+            <h1>🏀 NBA Stats Dashboard</h1>
+            <p style="color: #7f8c8d; margin: 10px 0;">Data from GitHub workflow scraper</p>
         </div>
         
+        <div id="last-update"></div>
+        
+        <div class="controls">
+            <button onclick="loadTop50Scorers()">🏆 Top 50 Scorers</button>
+            <button onclick="loadAdditionalStats()">📊 Additional Stats</button>
+            <button onclick="showAvailableFiles()">📁 Available Files</button>
+            <button class="download" onclick="downloadCurrentData()">💾 Download Data</button>
+            <button class="clear" onclick="clearResults()">🗑️ Clear</button>
+        </div>
+        
+        <div id="status"></div>
         <div id="results"></div>
     </div>
 
     <script>
-        const ESPN_API = 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete';
+        // Configuration - REMPLACEZ PAR VOS VRAIES VALEURS
+        const GITHUB_CONFIG = {
+            username: 'JohanL-78',         // ← Exemple: 'johndoe'
+            repository: 'espn-api-test',       // ← Exemple: 'nba-stats-scraper'
+            branch: 'main',                   // ← 'main' ou 'master'
+            dataFolder: 'data'                // ← dossier contenant les JSON
+        };
         
-        async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 10, season = '2024') {
-            const params = new URLSearchParams({
-                region: 'gb',
-                lang: 'en',
-                contentorigin: 'espn',
-                isqualified: 'true',
-                page: '1',
-                limit: limit.toString(),
-                sort: sortBy,
-                season: season,
-                seasontype: '2'  // Regular season
-            });
+        let currentData = null;
+        
+        // Construire l'URL GitHub Raw pour accéder aux fichiers
+        function getGitHubRawUrl(filename) {
+            return `https://raw.githubusercontent.com/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repository}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.dataFolder}/${filename}`;
+        }
+        
+        // Construire l'URL de l'API GitHub pour lister les fichiers
+        function getGitHubApiUrl() {
+            return `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repository}/contents/${GITHUB_CONFIG.dataFolder}`;
+        }
+        
+        function showStatus(message, type = 'loading') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function clearStatus() {
+            document.getElementById('status').innerHTML = '';
+        }
+        
+        function updateLastUpdateTime(timestamp) {
+            const lastUpdateDiv = document.getElementById('last-update');
+            if (timestamp) {
+                const date = new Date(timestamp);
+                const timeAgo = getTimeAgo(date);
+                lastUpdateDiv.innerHTML = `
+                    <div class="last-update">
+                        📅 Last updated: ${date.toLocaleString()} (${timeAgo})
+                    </div>
+                `;
+            }
+        }
+        
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
             
-            const url = `${ESPN_API}?${params}`;
-            
+            if (diffHours > 24) {
+                const diffDays = Math.floor(diffHours / 24);
+                return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            } else if (diffHours > 0) {
+                return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            } else {
+                return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+            }
+        }
+        
+        async function fetchJsonFromGitHub(filename) {
             try {
-                console.log('🔗 Fetching:', url);
-                console.log(`📊 Parameters: Season ${season}, Limit ${limit}, Sort ${sortBy}`);
+                showStatus(`🔄 Loading ${filename} from GitHub...`);
+                const url = getGitHubRawUrl(filename);
+                console.log(`📥 Fetching: ${url}`);
+                
                 const response = await fetch(url);
                 
                 if (!response.ok) {
@@ -121,327 +349,354 @@
                 }
                 
                 const data = await response.json();
-                console.log('📊 Raw data:', data);
-                
-                // Debug la structure
-                console.log('🔍 Data keys:', Object.keys(data));
-                console.log('📊 Global categories:', data.categories);
-                if (data.athletes && data.athletes.length > 0) {
-                    console.log('👤 First athlete:', data.athletes[0]);
-                    console.log('📊 First athlete keys:', Object.keys(data.athletes[0]));
-                    if (data.athletes[0].categories) {
-                        console.log('📈 Player Categories:', data.athletes[0].categories);
-                        console.log('📈 First player category:', data.athletes[0].categories[0]);
-                    }
-                }
-                
+                clearStatus();
                 return data;
             } catch (error) {
-                console.error('❌ Fetch error:', error);
+                showStatus(`❌ Error loading ${filename}: ${error.message}`, 'error');
                 throw error;
             }
         }
         
-        function parsePlayerData(playerData, globalCategories = []) {
-            const player = {
-                id: playerData.athlete?.id || 'unknown',
-                name: playerData.athlete?.displayName || 'Unknown Player',
-                shortName: playerData.athlete?.shortName || '',
-                debutYear: playerData.athlete?.debutYear || null,
-                team: playerData.athlete?.teamShortName || playerData.athlete?.teamName || 'N/A',
-                teamAbbr: playerData.athlete?.teamShortName || 'N/A',
-                teamFullName: playerData.athlete?.teamName || 'N/A',
-                photo: playerData.athlete?.headshot?.href || null,
-                // FIX: Correction du chemin pour les logos d'équipe
-                logo: playerData.athlete?.teamLogos?.[0]?.href || null
-            };
-            
-            // Debug amélioré
-            console.log('🔍 Parsing player:', player.name);
-            console.log('🏀 Team info:', {
-                teamShortName: playerData.athlete?.teamShortName,
-                teamName: playerData.athlete?.teamName,
-                teamLogos: playerData.athlete?.teamLogos?.length || 0
-            });
-            console.log('📸 Headshot URL for', player.name, ':', player.photo);
-            console.log('🏆 Team logo URL for', player.name, ':', player.logo);
-
-            
-            // Parse categories en utilisant les définitions globales
-            if (playerData.categories && Array.isArray(playerData.categories)) {
-                playerData.categories.forEach((playerCategory, catIndex) => {
-                    console.log(`📈 Player Category ${catIndex}:`, playerCategory);
-                    
-                    // Trouver la définition globale correspondante
-                    const globalCategory = globalCategories.find(gc => gc.name === playerCategory.name);
-                    
-                    if (globalCategory && globalCategory.displayNames && playerCategory.values) {
-                        console.log(`✅ Found global def for ${playerCategory.name}:`, globalCategory.displayNames.slice(0, 3));
-                        
-                        globalCategory.displayNames.forEach((statName, index) => {
-                            const value = playerCategory.values[index];
-                            if (value !== undefined) {
-                                const key = `${playerCategory.name}_${statName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}`;
-                                player[key] = value;
-                            }
-                        });
-                    } else {
-                        console.log(`⚠️ No global definition found for category: ${playerCategory.name}`);
-                        
-                        // Fallback : utiliser les valeurs avec des indices
-                        if (playerCategory.values) {
-                            playerCategory.values.forEach((value, index) => {
-                                const key = `${playerCategory.name}_stat_${index}`;
-                                player[key] = value;
-                            });
-                        }
-                    }
-                });
+        async function getAvailableFiles() {
+            try {
+                showStatus('🔍 Checking available files...');
+                const url = getGitHubApiUrl();
+                console.log(`📁 Fetching file list: ${url}`);
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const files = await response.json();
+                const jsonFiles = files
+                    .filter(file => file.name.endsWith('.json') && file.type === 'file')
+                    .map(file => ({
+                        name: file.name,
+                        downloadUrl: file.download_url,
+                        lastModified: file.name.includes('latest') ? new Date() : null // GitHub API ne donne pas toujours la date de modif
+                    }))
+                    .sort((a, b) => {
+                        // Mettre "latest" en premier, puis trier par nom
+                        if (a.name.includes('latest')) return -1;
+                        if (b.name.includes('latest')) return 1;
+                        return b.name.localeCompare(a.name);
+                    });
+                
+                clearStatus();
+                return jsonFiles;
+            } catch (error) {
+                showStatus(`❌ Error listing files: ${error.message}`, 'error');
+                return [];
             }
-            
-            console.log('✅ Parsed player stats:', Object.keys(player).filter(k => k.includes('_')));
-            return player;
         }
         
-        function displayTop50Players(players, title) {
-            const resultsDiv = document.getElementById('results');
-
-            if (!players || players.length === 0) {
-                resultsDiv.innerHTML = `<h2>${title}</h2><p>❌ No players found</p>`;
+        function displayTop50Scorers(data) {
+            if (!data || !data.players || data.players.length === 0) {
+                showStatus('❌ No player data found in JSON file', 'error');
                 return;
             }
-
-            let html = `<h2>${title}</h2>`;
-            html += `<p><strong>📊 Total: ${players.length} players</strong></p>`;
-
-            // Stats summary
-            const avgPoints = players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length;
-            const players25Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 25).length;
-            const players30Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 30).length;
-
+            
+            const players = data.players;
+            const metadata = data.metadata;
+            
+            // Mettre à jour l'heure de dernière mise à jour
+            updateLastUpdateTime(metadata.timestamp);
+            
+            let html = `<h2>🏆 Top 50 NBA Scorers - ${metadata.season || '2024-25'}</h2>`;
+            
+            // Info sur la source
             html += `
-                <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                    <strong>📈 Season Summary:</strong><br>
-                    🔥 Average PPG (Top 50): ${avgPoints.toFixed(1)}<br>
-                    ⭐ Players with 25+ PPG: ${players25Plus}<br>
-                    🚀 Players with 30+ PPG: ${players30Plus}
+                <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                    <strong>📊 Data Source:</strong> ${metadata.source || 'ESPN API'} via GitHub Workflow<br>
+                    <strong>🔄 Scraped:</strong> ${new Date(metadata.timestamp).toLocaleString()}<br>
+                    <strong>📈 Season:</strong> ${metadata.season || '2024-25'} | <strong>👥 Players:</strong> ${metadata.totalPlayers || players.length}
                 </div>
             `;
-
-            // Affichage compact en grille pour 50 joueurs
-            html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 20px;">';
-
+            
+            // Summary card
+            if (metadata.summary) {
+                const summary = metadata.summary;
+                html += `
+                    <div class="summary-card">
+                        <h3>📈 Season Summary</h3>
+                        <div class="summary-stats">
+                            <div class="summary-stat">
+                                <div class="value">${summary.averagePointsPerGame}</div>
+                                <div class="label">Avg PPG (Top 50)</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="value">${summary.playersWith25PlusPoints}</div>
+                                <div class="label">25+ PPG</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="value">${summary.playersWith30PlusPoints}</div>
+                                <div class="label">30+ PPG</div>
+                            </div>
+                            <div class="summary-stat">
+                                <div class="value">${summary.topScorer?.points?.toFixed(1) || 'N/A'}</div>
+                                <div class="label">Top Score (${summary.topScorer?.name || 'N/A'})</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Players grid
+            html += '<div class="players-grid">';
+            
             players.forEach((player, index) => {
                 const rank = index + 1;
                 const points = (player.offensive_points_per_game || 0).toFixed(1);
                 const rebounds = (player.general_rebounds_per_game || 0).toFixed(1);
                 const assists = (player.offensive_assists_per_game || 0).toFixed(1);
                 const games = player.general_games_played || 0;
-                const team = player.team || 'N/A';
-                const logo = player.logo || '';
-                const photo = player.photo || '';
-
-                // Couleur selon le ranking
-                let rankColor = '#333';
-                if (rank <= 3) rankColor = 'gold';
-                else if (rank <= 10) rankColor = 'silver';
-                else if (rank <= 20) rankColor = '#cd7f32';
-
-                // Debug pour chaque joueur
-                console.log(`Player ${rank}: ${player.name} - Team: ${team} - Logo: ${logo ? 'Found' : 'Missing'}`);
-
+                const minutes = (player.general_minutes_per_game || 0).toFixed(1);
+                
                 html += `
-                    <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: white;">
-                        <div style="font-weight: bold; color: ${rankColor}; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                            ${photo ? `<img src="${photo}" alt="${player.name}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none';" />` : '<div style="width: 50px; height: 50px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>'}
-                            <div style="flex: 1;">
-                                #${rank} ${player.name}
-                                <span style="font-size: 12px; color: #666;">(${team})</span>
+                    <div class="player-card">
+                        <div class="player-header">
+                            ${player.photo 
+                                ? `<img src="${player.photo}" alt="${player.name}" class="player-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" /><div class="player-photo-placeholder" style="display: none;">👤</div>`
+                                : '<div class="player-photo-placeholder">👤</div>'
+                            }
+                            <div class="player-info">
+                                <div class="player-name">${player.name}</div>
+                                <div class="player-team">${player.team || 'N/A'}</div>
+                                <span class="player-rank">#${rank}</span>
                             </div>
-                            ${logo ? `<img src="${logo}" alt="${team}" style="height: 26px;" onerror="this.style.display='none';" />` : '<div style="height: 26px; width: 26px; background: #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px;">🏀</div>'}
+                            ${player.logo 
+                                ? `<img src="${player.logo}" alt="${player.team}" class="team-logo" onerror="this.style.display='none';" />`
+                                : '<div style="width: 35px; height: 35px; background: #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px;">🏀</div>'
+                            }
                         </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
-                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
-                                <div style="font-size: 16px; font-weight: bold; color: #e74c3c;">${points}</div>
-                                <div style="font-size: 10px; color: #666;">PPG</div>
+                        
+                        <div class="player-stats">
+                            <div class="stat-box points">
+                                <div class="stat-value">${points}</div>
+                                <div class="stat-label">PPG</div>
                             </div>
-                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
-                                <div style="font-size: 16px; font-weight: bold; color: #3498db;">${rebounds}</div>
-                                <div style="font-size: 10px; color: #666;">RPG</div>
+                            <div class="stat-box rebounds">
+                                <div class="stat-value">${rebounds}</div>
+                                <div class="stat-label">RPG</div>
                             </div>
-                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
-                                <div style="font-size: 16px; font-weight: bold; color: #2ecc71;">${assists}</div>
-                                <div style="font-size: 10px; color: #666;">APG</div>
+                            <div class="stat-box assists">
+                                <div class="stat-value">${assists}</div>
+                                <div class="stat-label">APG</div>
                             </div>
                         </div>
-                        <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #666;">
-                            ${games} games played
+                        
+                        <div class="additional-info">
+                            ${games} games • ${minutes} min/game
+                            ${player.debutYear ? ` • Since ${player.debutYear}` : ''}
                         </div>
                     </div>
                 `;
             });
-
+            
             html += '</div>';
-
-            // Bouton pour télécharger les données
-            html += `
-                <div style="margin-top: 30px; text-align: center;">
-                    <button onclick="downloadTop50Data()" style="background: #27ae60; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer;">
-                        💾 Download Top 50 Data (JSON)
-                    </button>
-                </div>
-            `;
-
-            resultsDiv.innerHTML = html;
-
-            // Stocker les données pour le download
-            window.currentTop50Data = players;
-        }
-
-        function displayPlayers(players, title) {
-            const resultsDiv = document.getElementById('results');
             
-            let html = `<h2>${title}</h2>`;
+            document.getElementById('results').innerHTML = html;
+            currentData = data;
             
-            players.forEach((player, index) => {
-                html += `
-                    <div class="player">
-                        <div class="player-name">
-                            ${index + 1}. ${player.name}
-                            <small>(depuis ${player.debutYear || 'N/A'})</small>
-                        </div>
-                        <div class="stats">
-                            <div class="stat">
-                                <span class="stat-label">Points/Game</span>
-                                <span class="stat-value">${(player.offensive_points_per_game || 0).toFixed(1)}</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Rebounds/Game</span>
-                                <span class="stat-value">${(player.general_rebounds_per_game || 0).toFixed(1)}</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Assists/Game</span>
-                                <span class="stat-value">${(player.offensive_assists_per_game || 0).toFixed(1)}</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Games Played</span>
-                                <span class="stat-value">${player.general_games_played || 0}</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Minutes/Game</span>
-                                <span class="stat-value">${(player.general_minutes_per_game || 0).toFixed(1)}</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-label">Double Doubles</span>
-                                <span class="stat-value">${player.general_double_double || 0}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            resultsDiv.innerHTML = html;
+            showStatus(`✅ Loaded ${players.length} players from GitHub data!`, 'success');
+            setTimeout(clearStatus, 3000);
         }
         
-        function downloadTop50Data() {
-            if (!window.currentTop50Data) {
-                alert('No data available to download');
+        function displayAdditionalStats(data) {
+            if (!data) {
+                showStatus('❌ No additional stats data found', 'error');
                 return;
             }
             
-            const data = {
-                metadata: {
-                    source: 'ESPN API',
-                    timestamp: new Date().toISOString(),
-                    season: '2024-25',
-                    totalPlayers: window.currentTop50Data.length,
-                    sortBy: 'Points Per Game (Descending)'
-                },
-                players: window.currentTop50Data
-            };
+            updateLastUpdateTime(data.metadata?.timestamp);
             
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            let html = '<h2>📊 Additional NBA Stats (from GitHub data)</h2>';
+            
+            if (data.topRebounders && data.topRebounders.length > 0) {
+                html += '<h3>🏀 Top Rebounders</h3><div class="players-grid">';
+                data.topRebounders.slice(0, 10).forEach((player, index) => {
+                    const rebounds = (player.general_rebounds_per_game || 0).toFixed(1);
+                    html += `
+                        <div class="player-card">
+                            <div class="player-header">
+                                <div class="player-info">
+                                    <div class="player-name">${player.name}</div>
+                                    <div class="player-team">${player.team || 'N/A'}</div>
+                                    <span class="player-rank">#${index + 1}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: center; margin-top: 10px;">
+                                <div class="stat-value" style="font-size: 24px; color: #3498db;">${rebounds}</div>
+                                <div class="stat-label">REBOUNDS PER GAME</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            if (data.topAssistLeaders && data.topAssistLeaders.length > 0) {
+                html += '<h3>🎯 Top Assist Leaders</h3><div class="players-grid">';
+                data.topAssistLeaders.slice(0, 10).forEach((player, index) => {
+                    const assists = (player.offensive_assists_per_game || 0).toFixed(1);
+                    html += `
+                        <div class="player-card">
+                            <div class="player-header">
+                                <div class="player-info">
+                                    <div class="player-name">${player.name}</div>
+                                    <div class="player-team">${player.team || 'N/A'}</div>
+                                    <span class="player-rank">#${index + 1}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: center; margin-top: 10px;">
+                                <div class="stat-value" style="font-size: 24px; color: #2ecc71;">${assists}</div>
+                                <div class="stat-label">ASSISTS PER GAME</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            document.getElementById('results').innerHTML = html;
+            currentData = data;
+            
+            showStatus('✅ Additional stats loaded from GitHub!', 'success');
+            setTimeout(clearStatus, 3000);
+        }
+        
+        async function showAvailableFiles() {
+            const files = await getAvailableFiles();
+            
+            if (files.length === 0) {
+                showStatus('❌ No JSON files found in the repository', 'error');
+                return;
+            }
+            
+            let html = '<h2>📁 Available Data Files</h2>';
+            html += '<div class="file-list">';
+            html += '<p><strong>Files found in your GitHub repository:</strong></p>';
+            
+            files.forEach(file => {
+                const isLatest = file.name.includes('latest');
+                html += `
+                    <div class="file-item" style="${isLatest ? 'border-left: 4px solid #27ae60;' : ''}">
+                        <div>
+                            <span class="file-name">${file.name}</span>
+                            ${isLatest ? '<span style="color: #27ae60; font-size: 12px; margin-left: 8px;">📌 LATEST</span>' : ''}
+                        </div>
+                        <div>
+                            <button onclick="loadSpecificFile('${file.name}')" style="padding: 4px 8px; font-size: 12px;">Load</button>
+                            <a href="${file.downloadUrl}" download style="margin-left: 8px; color: #007bff; text-decoration: none;">📥</a>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Ajouter des instructions de configuration
+            html += `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                    <h4>⚙️ Configuration</h4>
+                    <p>Make sure to update the GitHub configuration in the JavaScript:</p>
+                    <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 12px;">
+const GITHUB_CONFIG = {
+    username: '${GITHUB_CONFIG.username}',     // ← Update this
+    repository: '${GITHUB_CONFIG.repository}', // ← Update this  
+    branch: '${GITHUB_CONFIG.branch}',
+    dataFolder: '${GITHUB_CONFIG.dataFolder}'
+};</pre>
+                </div>
+            `;
+            
+            document.getElementById('results').innerHTML = html;
+        }
+        
+        async function loadSpecificFile(filename) {
+            try {
+                const data = await fetchJsonFromGitHub(filename);
+                
+                if (filename.includes('additional')) {
+                    displayAdditionalStats(data);
+                } else {
+                    displayTop50Scorers(data);
+                }
+            } catch (error) {
+                console.error(`Error loading ${filename}:`, error);
+            }
+        }
+        
+        async function loadTop50Scorers() {
+            try {
+                // Essayer d'abord le fichier "latest", puis fallback sur un fichier récent
+                await loadSpecificFile('nba_top50_scorers_latest.json');
+            } catch (error) {
+                console.log('Latest file not found, trying to find recent files...');
+                const files = await getAvailableFiles();
+                const scorersFile = files.find(f => f.name.includes('top50_scorers') && !f.name.includes('latest'));
+                
+                if (scorersFile) {
+                    await loadSpecificFile(scorersFile.name);
+                } else {
+                    showStatus('❌ No top 50 scorers data found in repository', 'error');
+                }
+            }
+        }
+        
+        async function loadAdditionalStats() {
+            try {
+                const files = await getAvailableFiles();
+                const additionalFile = files.find(f => f.name.includes('additional'));
+                
+                if (additionalFile) {
+                    await loadSpecificFile(additionalFile.name);
+                } else {
+                    showStatus('❌ No additional stats data found in repository', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading additional stats:', error);
+            }
+        }
+        
+        function downloadCurrentData() {
+            if (!currentData) {
+                showStatus('❌ No data available to download', 'error');
+                setTimeout(clearStatus, 3000);
+                return;
+            }
+            
+            const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `nba_top50_scorers_2024-25_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `nba_stats_${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            console.log('💾 Downloaded Top 50 data as JSON');
-        }
-        
-        function showLoading() {
-            document.getElementById('results').innerHTML = '<div class="loading">🔄 Loading...</div>';
-        }
-        
-        function showError(error) {
-            document.getElementById('results').innerHTML = `
-                <div class="error">
-                    <strong>❌ Error:</strong> ${error.message}
-                    <br><small>Check console for details</small>
-                </div>
-            `;
-        }
-        
-        async function getTop50Scorers2024() {
-            showLoading();
-            try {
-                console.log('🏆 Getting Top 50 NBA Scorers for 2024-25 season...');
-                
-                const data = await fetchESPNData('offensive.avgPoints:desc', 50, '2024');
-                const globalCategories = data.categories || [];
-                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
-                
-                displayTop50Players(players, '🏆 Top 50 NBA Scorers 2024-25 Season');
-                
-                // Afficher quelques stats résumées
-                console.log('📊 SUMMARY:');
-                console.log(`Total players: ${players.length}`);
-                console.log(`Top scorer: ${players[0]?.name} - ${players[0]?.offensive_points_per_game?.toFixed(1)} PPG`);
-                console.log(`Average PPG (Top 50): ${(players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length).toFixed(1)}`);
-                console.log(`Players with 25+ PPG: ${players.filter(p => (p.offensive_points_per_game || 0) >= 25).length}`);
-                
-            } catch (error) {
-                showError(error);
-            }
-        }
-        
-        async function testTopRebounders() {
-            showLoading();
-            try {
-                const data = await fetchESPNData('general.avgRebounds:desc', 10, '2024');
-                const globalCategories = data.categories || [];
-                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
-                displayPlayers(players, '💪 Top Rebounders (Rebounds Per Game)');
-            } catch (error) {
-                showError(error);
-            }
-        }
-        
-        async function testTopAssists() {
-            showLoading();
-            try {
-                const data = await fetchESPNData('offensive.avgAssists:desc', 10, '2024');
-                const globalCategories = data.categories || [];
-                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
-                displayPlayers(players, '🎯 Top Assists (Assists Per Game)');
-            } catch (error) {
-                showError(error);
-            }
+            showStatus('💾 Data downloaded successfully!', 'success');
+            setTimeout(clearStatus, 3000);
         }
         
         function clearResults() {
             document.getElementById('results').innerHTML = '';
+            document.getElementById('last-update').innerHTML = '';
+            currentData = null;
+            clearStatus();
         }
         
-        // Test automatique au chargement
+        // Auto-load on page load
         window.onload = function() {
-            console.log('🚀 ESPN NBA Top 50 Scraper Ready');
-            console.log('Click "Top 50 Scorers 2024-25" to get the current season leaders');
+            console.log('🚀 NBA Stats Dashboard Ready');
+            console.log('📊 Reading data from GitHub repository');
+            console.log(`🔗 Repo: ${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repository}`);
+            
+            // Essayer de charger automatiquement les données
+            loadTop50Scorers();
         };
     </script>
 </body>
