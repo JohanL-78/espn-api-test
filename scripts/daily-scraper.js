@@ -57,7 +57,7 @@ function parsePlayerData(playerData, globalCategories = []) {
         name: athlete.displayName || 'Unknown Player',
         shortName: athlete.shortName || '',
         debutYear: athlete.debutYear || null,
-        team: team.displayName || 'N/A',
+        team: athlete.teamShortName || athlete.teamName || 'N/A',  // ✅ FIX: même logique que version locale
         teamShortName: team.shortDisplayName || team.abbreviation || 'N/A',
         teamAbbr: team.abbreviation || 'N/A',
         position: athlete.position?.displayName || 'N/A',
