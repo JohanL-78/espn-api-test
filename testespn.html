@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test ESPN API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .player {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .player-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .stat {
+            background: #e9e9e9;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            display: block;
+        }
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #005a8b;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #d00;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏀 ESPN NBA Top 50 Scorers 2024-25</h1>
+        
+        <div>
+            <button onclick="getTop50Scorers2024()">🏆 Top 50 Scorers 2024-25</button>
+            <button onclick="testTopRebounders()">Top Rebounders</button>
+            <button onclick="testTopAssists()">Top Assists</button>
+            <button onclick="clearResults()">Clear</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const ESPN_API = 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete';
+        
+        async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 10, season = '2024') {
+            const params = new URLSearchParams({
+                region: 'gb',
+                lang: 'en',
+                contentorigin: 'espn',
+                isqualified: 'true',
+                page: '1',
+                limit: limit.toString(),
+                sort: sortBy,
+                season: season,
+                seasontype: '2'  // Regular season
+            });
+            
+            const url = `${ESPN_API}?${params}`;
+            
+            try {
+                console.log('🔗 Fetching:', url);
+                console.log(`📊 Parameters: Season ${season}, Limit ${limit}, Sort ${sortBy}`);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('📊 Raw data:', data);
+                
+                // Debug la structure
+                console.log('🔍 Data keys:', Object.keys(data));
+                console.log('📊 Global categories:', data.categories);
+                if (data.athletes && data.athletes.length > 0) {
+                    console.log('👤 First athlete:', data.athletes[0]);
+                    console.log('📊 First athlete keys:', Object.keys(data.athletes[0]));
+                    if (data.athletes[0].categories) {
+                        console.log('📈 Player Categories:', data.athletes[0].categories);
+                        console.log('📈 First player category:', data.athletes[0].categories[0]);
+                    }
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('❌ Fetch error:', error);
+                throw error;
+            }
+        }
+        
+        function parsePlayerData(playerData, globalCategories = []) {
+            const player = {
+                id: playerData.athlete?.id || 'unknown',
+                name: playerData.athlete?.displayName || 'Unknown Player',
+                shortName: playerData.athlete?.shortName || '',
+                debutYear: playerData.athlete?.debutYear || null
+            };
+            
+            // Debug
+            console.log('🔍 Parsing player:', player.name);
+            console.log('📊 Global categories available:', globalCategories.length);
+            
+            // Parse categories en utilisant les définitions globales
+            if (playerData.categories && Array.isArray(playerData.categories)) {
+                playerData.categories.forEach((playerCategory, catIndex) => {
+                    console.log(`📈 Player Category ${catIndex}:`, playerCategory);
+                    
+                    // Trouver la définition globale correspondante
+                    const globalCategory = globalCategories.find(gc => gc.name === playerCategory.name);
+                    
+                    if (globalCategory && globalCategory.displayNames && playerCategory.values) {
+                        console.log(`✅ Found global def for ${playerCategory.name}:`, globalCategory.displayNames.slice(0, 3));
+                        
+                        globalCategory.displayNames.forEach((statName, index) => {
+                            const value = playerCategory.values[index];
+                            if (value !== undefined) {
+                                const key = `${playerCategory.name}_${statName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')}`;
+                                player[key] = value;
+                            }
+                        });
+                    } else {
+                        console.log(`⚠️ No global definition found for category: ${playerCategory.name}`);
+                        
+                        // Fallback : utiliser les valeurs avec des indices
+                        if (playerCategory.values) {
+                            playerCategory.values.forEach((value, index) => {
+                                const key = `${playerCategory.name}_stat_${index}`;
+                                player[key] = value;
+                            });
+                        }
+                    }
+                });
+            }
+            
+            console.log('✅ Parsed player stats:', Object.keys(player).filter(k => k.includes('_')));
+            return player;
+        }
+        
+        function displayTop50Players(players, title) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (!players || players.length === 0) {
+                resultsDiv.innerHTML = `<h2>${title}</h2><p>❌ No players found</p>`;
+                return;
+            }
+            
+            let html = `<h2>${title}</h2>`;
+            html += `<p><strong>📊 Total: ${players.length} players</strong></p>`;
+            
+            // Stats summary
+            const avgPoints = players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length;
+            const players25Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 25).length;
+            const players30Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 30).length;
+            
+            html += `
+                <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <strong>📈 Season Summary:</strong><br>
+                    🔥 Average PPG (Top 50): ${avgPoints.toFixed(1)}<br>
+                    ⭐ Players with 25+ PPG: ${players25Plus}<br>
+                    🚀 Players with 30+ PPG: ${players30Plus}
+                </div>
+            `;
+            
+            // Affichage compact en grille pour 50 joueurs
+            html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 20px;">';
+            
+            players.forEach((player, index) => {
+                const rank = index + 1;
+                const points = (player.offensive_points_per_game || 0).toFixed(1);
+                const rebounds = (player.general_rebounds_per_game || 0).toFixed(1);
+                const assists = (player.offensive_assists_per_game || 0).toFixed(1);
+                const games = player.general_games_played || 0;
+                const team = player.team || 'N/A';
+                
+                // Couleur selon le ranking
+                let rankColor = '#333';
+                if (rank <= 3) rankColor = '#gold';
+                else if (rank <= 10) rankColor = '#silver';
+                else if (rank <= 20) rankColor = '#cd7f32';
+                
+                html += `
+                    <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: white;">
+                        <div style="font-weight: bold; color: ${rankColor}; margin-bottom: 8px;">
+                            #${rank} ${player.name}
+                            <span style="font-size: 12px; color: #666;">(${team})</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
+                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
+                                <div style="font-size: 16px; font-weight: bold; color: #e74c3c;">${points}</div>
+                                <div style="font-size: 10px; color: #666;">PPG</div>
+                            </div>
+                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
+                                <div style="font-size: 16px; font-weight: bold; color: #3498db;">${rebounds}</div>
+                                <div style="font-size: 10px; color: #666;">RPG</div>
+                            </div>
+                            <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
+                                <div style="font-size: 16px; font-weight: bold; color: #2ecc71;">${assists}</div>
+                                <div style="font-size: 10px; color: #666;">APG</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px; font-size: 12px; color: #666;">
+                            ${games} games played
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Bouton pour télécharger les données
+            html += `
+                <div style="margin-top: 30px; text-align: center;">
+                    <button onclick="downloadTop50Data()" style="background: #27ae60; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer;">
+                        💾 Download Top 50 Data (JSON)
+                    </button>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+            
+            // Stocker les données pour le download
+            window.currentTop50Data = players;
+        }
+        
+        function displayPlayers(players, title) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `<h2>${title}</h2>`;
+            
+            players.forEach((player, index) => {
+                html += `
+                    <div class="player">
+                        <div class="player-name">
+                            ${index + 1}. ${player.name}
+                            <small>(depuis ${player.debutYear || 'N/A'})</small>
+                        </div>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-label">Points/Game</span>
+                                <span class="stat-value">${(player.offensive_points_per_game || 0).toFixed(1)}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Rebounds/Game</span>
+                                <span class="stat-value">${(player.general_rebounds_per_game || 0).toFixed(1)}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Assists/Game</span>
+                                <span class="stat-value">${(player.offensive_assists_per_game || 0).toFixed(1)}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Games Played</span>
+                                <span class="stat-value">${player.general_games_played || 0}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Minutes/Game</span>
+                                <span class="stat-value">${(player.general_minutes_per_game || 0).toFixed(1)}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Double Doubles</span>
+                                <span class="stat-value">${player.general_double_double || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function downloadTop50Data() {
+            if (!window.currentTop50Data) {
+                alert('No data available to download');
+                return;
+            }
+            
+            const data = {
+                metadata: {
+                    source: 'ESPN API',
+                    timestamp: new Date().toISOString(),
+                    season: '2024-25',
+                    totalPlayers: window.currentTop50Data.length,
+                    sortBy: 'Points Per Game (Descending)'
+                },
+                players: window.currentTop50Data
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nba_top50_scorers_2024-25_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log('💾 Downloaded Top 50 data as JSON');
+        }
+        
+        function showLoading() {
+            document.getElementById('results').innerHTML = '<div class="loading">🔄 Loading...</div>';
+        }
+        
+        function showError(error) {
+            document.getElementById('results').innerHTML = `
+                <div class="error">
+                    <strong>❌ Error:</strong> ${error.message}
+                    <br><small>Check console for details</small>
+                </div>
+            `;
+        }
+        
+        async function getTop50Scorers2024() {
+            showLoading();
+            try {
+                console.log('🏆 Getting Top 50 NBA Scorers for 2024-25 season...');
+                
+                const data = await fetchESPNData('offensive.avgPoints:desc', 50, '2024');
+                const globalCategories = data.categories || [];
+                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
+                
+                displayTop50Players(players, '🏆 Top 50 NBA Scorers 2024-25 Season');
+                
+                // Afficher quelques stats résumées
+                console.log('📊 SUMMARY:');
+                console.log(`Total players: ${players.length}`);
+                console.log(`Top scorer: ${players[0]?.name} - ${players[0]?.offensive_points_per_game?.toFixed(1)} PPG`);
+                console.log(`Average PPG (Top 50): ${(players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length).toFixed(1)}`);
+                console.log(`Players with 25+ PPG: ${players.filter(p => (p.offensive_points_per_game || 0) >= 25).length}`);
+                
+            } catch (error) {
+                showError(error);
+            }
+        }
+        
+        async function testTopRebounders() {
+            showLoading();
+            try {
+                const data = await fetchESPNData('general.avgRebounds:desc', 10, '2024');
+                const globalCategories = data.categories || [];
+                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
+                displayPlayers(players, '💪 Top Rebounders (Rebounds Per Game)');
+            } catch (error) {
+                showError(error);
+            }
+        }
+        
+        async function testTopAssists() {
+            showLoading();
+            try {
+                const data = await fetchESPNData('offensive.avgAssists:desc', 10, '2024');
+                const globalCategories = data.categories || [];
+                const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
+                displayPlayers(players, '🎯 Top Assists (Assists Per Game)');
+            } catch (error) {
+                showError(error);
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            console.log('🚀 ESPN NBA Top 50 Scraper Ready');
+            console.log('Click "Top 50 Scorers 2024-25" to get the current season leaders');
+        };
+    </script>
+</body>
+</html>
