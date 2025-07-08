@@ -47,18 +47,52 @@ async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 50, se
     }
 }
 
-// Parser les données des joueurs
+// Parser les données des joueurs (VERSION ENRICHIE avec photos et logos)
 function parsePlayerData(playerData, globalCategories = []) {
+    const athlete = playerData.athlete || {};
+    const team = athlete.team || {};
+    
     const player = {
-        id: playerData.athlete?.id || 'unknown',
-        name: playerData.athlete?.displayName || 'Unknown Player',
-        shortName: playerData.athlete?.shortName || '',
-        debutYear: playerData.athlete?.debutYear || null,
-        team: playerData.athlete?.team?.displayName || 'N/A',
-        position: playerData.athlete?.position?.displayName || 'N/A'
+        id: athlete.id || 'unknown',
+        name: athlete.displayName || 'Unknown Player',
+        shortName: athlete.shortName || '',
+        debutYear: athlete.debutYear || null,
+        team: team.displayName || 'N/A',
+        teamShortName: team.shortDisplayName || team.abbreviation || 'N/A',
+        teamAbbr: team.abbreviation || 'N/A',
+        position: athlete.position?.displayName || 'N/A',
+        
+        // 📸 NOUVELLES PROPRIÉTÉS : Photos et logos
+        photo: athlete.headshot?.href || null,
+        teamLogo: null, // sera défini ci-dessous
+        teamColor: team.color || null,
+        teamAlternateColor: team.alternateColor || null
     };
     
-    // Parser les catégories de stats
+    // 🏆 Récupérer le logo de l'équipe (plusieurs sources possibles)
+    if (team.logos && Array.isArray(team.logos) && team.logos.length > 0) {
+        // Préférer le logo le plus grand disponible
+        const logos = team.logos.sort((a, b) => (b.width || 0) - (a.width || 0));
+        player.teamLogo = logos[0].href;
+    } else if (team.logo) {
+        player.teamLogo = team.logo;
+    }
+    
+    // 🔍 Debug pour voir la structure des données (à retirer en production)
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔍 Player: ${player.name}`);
+        console.log(`📸 Photo: ${player.photo ? 'Found' : 'Missing'}`);
+        console.log(`🏆 Team Logo: ${player.teamLogo ? 'Found' : 'Missing'}`);
+        if (!player.photo) {
+            console.log('📸 Headshot structure:', athlete.headshot);
+        }
+        if (!player.teamLogo) {
+            console.log('🏆 Team logos structure:', team.logos);
+            console.log('🏆 Team logo direct:', team.logo);
+        }
+    }
+    
+    // Parser les catégories de stats (code existant inchangé)
     if (playerData.categories && Array.isArray(playerData.categories)) {
         playerData.categories.forEach((playerCategory) => {
             // Trouver la définition globale correspondante
@@ -85,7 +119,28 @@ function parsePlayerData(playerData, globalCategories = []) {
     return player;
 }
 
-// Fonction principale pour scraper les top scorers
+// Fonction pour valider et nettoyer les URLs d'images
+function validateImageUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    
+    // Vérifier que c'est bien une URL
+    try {
+        new URL(url);
+        // Vérifier que c'est une image
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+        const hasImageExtension = imageExtensions.some(ext => url.toLowerCase().includes(ext));
+        
+        if (hasImageExtension || url.includes('headshot') || url.includes('logo')) {
+            return url;
+        }
+    } catch (error) {
+        console.log(`⚠️ Invalid URL: ${url}`);
+    }
+    
+    return null;
+}
+
+// Fonction principale pour scraper les top scorers (VERSION ENRICHIE)
 async function scrapeTop50Scorers() {
     console.log('🏆 Starting NBA Top 50 Scorers scrape...');
     
@@ -94,10 +149,14 @@ async function scrapeTop50Scorers() {
         const globalCategories = data.categories || [];
         const players = data.athletes.map(playerData => parsePlayerData(playerData, globalCategories));
         
-        // Calculer des stats résumées
+        // 📊 Calculer des stats résumées
         const avgPoints = players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length;
         const players25Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 25).length;
         const players30Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 30).length;
+        
+        // 📸 Stats sur les images
+        const playersWithPhotos = players.filter(p => p.photo).length;
+        const playersWithTeamLogos = players.filter(p => p.teamLogo).length;
         
         const scrapedData = {
             metadata: {
@@ -106,6 +165,12 @@ async function scrapeTop50Scorers() {
                 season: '2024-25',
                 totalPlayers: players.length,
                 sortBy: 'Points Per Game (Descending)',
+                imageStats: {
+                    playersWithPhotos: playersWithPhotos,
+                    playersWithTeamLogos: playersWithTeamLogos,
+                    photoPercentage: Math.round((playersWithPhotos / players.length) * 100),
+                    logoPercentage: Math.round((playersWithTeamLogos / players.length) * 100)
+                },
                 summary: {
                     averagePointsPerGame: Number(avgPoints.toFixed(1)),
                     playersWith25PlusPoints: players25Plus,
@@ -113,7 +178,9 @@ async function scrapeTop50Scorers() {
                     topScorer: {
                         name: players[0]?.name,
                         points: players[0]?.offensive_points_per_game,
-                        team: players[0]?.team
+                        team: players[0]?.team,
+                        photo: players[0]?.photo,
+                        teamLogo: players[0]?.teamLogo
                     }
                 }
             },
@@ -141,6 +208,19 @@ async function scrapeTop50Scorers() {
         console.log(`🔥 Players with 25+ PPG: ${players25Plus}`);
         console.log(`🚀 Players with 30+ PPG: ${players30Plus}`);
         
+        // 📸 Nouvelles stats sur les images
+        console.log(`\n📸 IMAGE STATS:`);
+        console.log(`📷 Players with photos: ${playersWithPhotos}/${players.length} (${Math.round((playersWithPhotos / players.length) * 100)}%)`);
+        console.log(`🏆 Players with team logos: ${playersWithTeamLogos}/${players.length} (${Math.round((playersWithTeamLogos / players.length) * 100)}%)`);
+        
+        // Lister quelques exemples d'URLs pour vérification
+        console.log(`\n🔗 SAMPLE URLS:`);
+        const samplePlayer = players.find(p => p.photo && p.teamLogo);
+        if (samplePlayer) {
+            console.log(`📸 Sample photo: ${samplePlayer.photo}`);
+            console.log(`🏆 Sample logo: ${samplePlayer.teamLogo}`);
+        }
+        
         return scrapedData;
         
     } catch (error) {
@@ -149,7 +229,7 @@ async function scrapeTop50Scorers() {
     }
 }
 
-// Scraper d'autres catégories (optionnel)
+// Scraper d'autres catégories (VERSION ENRICHIE)
 async function scrapeOtherStats() {
     console.log('\n📊 Scraping additional stats...');
     
@@ -162,12 +242,20 @@ async function scrapeOtherStats() {
         const assistData = await fetchESPNData('offensive.avgAssists:desc', 20, CURRENT_SEASON);
         const assistLeaders = assistData.athletes.map(playerData => parsePlayerData(playerData, assistData.categories || []));
         
+        // 📸 Stats sur les images pour les stats additionnelles
+        const reboundersWithPhotos = rebounders.filter(p => p.photo).length;
+        const assistsWithPhotos = assistLeaders.filter(p => p.photo).length;
+        
         // Sauvegarder les stats additionnelles
         const additionalStats = {
             metadata: {
                 source: 'ESPN API',
                 timestamp: new Date().toISOString(),
-                season: '2024-25'
+                season: '2024-25',
+                imageStats: {
+                    reboundersWithPhotos: reboundersWithPhotos,
+                    assistLeadersWithPhotos: assistsWithPhotos
+                }
             },
             topRebounders: rebounders,
             topAssistLeaders: assistLeaders
@@ -182,6 +270,8 @@ async function scrapeOtherStats() {
         
         console.log(`🏀 Top rebounder: ${rebounders[0]?.name} - ${rebounders[0]?.general_rebounds_per_game?.toFixed(1)} RPG`);
         console.log(`🎯 Top assist leader: ${assistLeaders[0]?.name} - ${assistLeaders[0]?.offensive_assists_per_game?.toFixed(1)} APG`);
+        console.log(`📸 Rebounders with photos: ${reboundersWithPhotos}/${rebounders.length}`);
+        console.log(`📸 Assist leaders with photos: ${assistsWithPhotos}/${assistLeaders.length}`);
         
         return additionalStats;
         
@@ -194,7 +284,7 @@ async function scrapeOtherStats() {
 
 // Script principal
 async function main() {
-    console.log('🚀 Starting NBA Daily Stats Scraper');
+    console.log('🚀 Starting NBA Daily Stats Scraper (Enhanced with Images)');
     console.log(`📅 Date: ${new Date().toISOString()}`);
     console.log(`🏀 Season: ${CURRENT_SEASON}-${parseInt(CURRENT_SEASON) + 1}`);
     
@@ -211,7 +301,12 @@ async function main() {
         // Lister les fichiers créés
         const files = fs.readdirSync(DATA_DIR);
         console.log('📋 Files created:');
-        files.forEach(file => console.log(`  - ${file}`));
+        files.forEach(file => {
+            const filePath = path.join(DATA_DIR, file);
+            const stats = fs.statSync(filePath);
+            const sizeKB = Math.round(stats.size / 1024);
+            console.log(`  - ${file} (${sizeKB} KB)`);
+        });
         
     } catch (error) {
         console.error('\n❌ Scraping failed:', error);
@@ -228,5 +323,6 @@ module.exports = {
     scrapeTop50Scorers,
     scrapeOtherStats,
     fetchESPNData,
-    parsePlayerData
+    parsePlayerData,
+    validateImageUrl
 };
