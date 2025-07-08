@@ -17,7 +17,7 @@ async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 100, s
         region: 'gb',
         lang: 'en',
         contentorigin: 'espn',
-        isqualified: 'false',
+        
         page: '1',
         limit: limit.toString(),
         sort: sortBy,
