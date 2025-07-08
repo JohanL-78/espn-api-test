@@ -147,12 +147,25 @@
                 id: playerData.athlete?.id || 'unknown',
                 name: playerData.athlete?.displayName || 'Unknown Player',
                 shortName: playerData.athlete?.shortName || '',
-                debutYear: playerData.athlete?.debutYear || null
+                debutYear: playerData.athlete?.debutYear || null,
+                team: playerData.athlete?.teamShortName || playerData.athlete?.teamName || 'N/A',
+                teamAbbr: playerData.athlete?.teamShortName || 'N/A',
+                teamFullName: playerData.athlete?.teamName || 'N/A',
+                photo: playerData.athlete?.headshot?.href || null,
+                // FIX: Correction du chemin pour les logos d'équipe
+                logo: playerData.athlete?.teamLogos?.[0]?.href || null
             };
             
-            // Debug
+            // Debug amélioré
             console.log('🔍 Parsing player:', player.name);
-            console.log('📊 Global categories available:', globalCategories.length);
+            console.log('🏀 Team info:', {
+                teamShortName: playerData.athlete?.teamShortName,
+                teamName: playerData.athlete?.teamName,
+                teamLogos: playerData.athlete?.teamLogos?.length || 0
+            });
+            console.log('📸 Headshot URL for', player.name, ':', player.photo);
+            console.log('🏆 Team logo URL for', player.name, ':', player.logo);
+
             
             // Parse categories en utilisant les définitions globales
             if (playerData.categories && Array.isArray(playerData.categories)) {
@@ -192,20 +205,20 @@
         
         function displayTop50Players(players, title) {
             const resultsDiv = document.getElementById('results');
-            
+
             if (!players || players.length === 0) {
                 resultsDiv.innerHTML = `<h2>${title}</h2><p>❌ No players found</p>`;
                 return;
             }
-            
+
             let html = `<h2>${title}</h2>`;
             html += `<p><strong>📊 Total: ${players.length} players</strong></p>`;
-            
+
             // Stats summary
             const avgPoints = players.reduce((sum, p) => sum + (p.offensive_points_per_game || 0), 0) / players.length;
             const players25Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 25).length;
             const players30Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 30).length;
-            
+
             html += `
                 <div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
                     <strong>📈 Season Summary:</strong><br>
@@ -214,10 +227,10 @@
                     🚀 Players with 30+ PPG: ${players30Plus}
                 </div>
             `;
-            
+
             // Affichage compact en grille pour 50 joueurs
             html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 20px;">';
-            
+
             players.forEach((player, index) => {
                 const rank = index + 1;
                 const points = (player.offensive_points_per_game || 0).toFixed(1);
@@ -225,19 +238,29 @@
                 const assists = (player.offensive_assists_per_game || 0).toFixed(1);
                 const games = player.general_games_played || 0;
                 const team = player.team || 'N/A';
-                
+                const logo = player.logo || '';
+                const photo = player.photo || '';
+
                 // Couleur selon le ranking
                 let rankColor = '#333';
-                if (rank <= 3) rankColor = '#gold';
-                else if (rank <= 10) rankColor = '#silver';
+                if (rank <= 3) rankColor = 'gold';
+                else if (rank <= 10) rankColor = 'silver';
                 else if (rank <= 20) rankColor = '#cd7f32';
-                
+
+                // Debug pour chaque joueur
+                console.log(`Player ${rank}: ${player.name} - Team: ${team} - Logo: ${logo ? 'Found' : 'Missing'}`);
+
                 html += `
                     <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: white;">
-                        <div style="font-weight: bold; color: ${rankColor}; margin-bottom: 8px;">
-                            #${rank} ${player.name}
-                            <span style="font-size: 12px; color: #666;">(${team})</span>
+                        <div style="font-weight: bold; color: ${rankColor}; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                            ${photo ? `<img src="${photo}" alt="${player.name}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none';" />` : '<div style="width: 50px; height: 50px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>'}
+                            <div style="flex: 1;">
+                                #${rank} ${player.name}
+                                <span style="font-size: 12px; color: #666;">(${team})</span>
+                            </div>
+                            ${logo ? `<img src="${logo}" alt="${team}" style="height: 26px;" onerror="this.style.display='none';" />` : '<div style="height: 26px; width: 26px; background: #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px;">🏀</div>'}
                         </div>
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center;">
                             <div style="background: #f0f0f0; padding: 4px; border-radius: 4px;">
                                 <div style="font-size: 16px; font-weight: bold; color: #e74c3c;">${points}</div>
@@ -258,9 +281,9 @@
                     </div>
                 `;
             });
-            
+
             html += '</div>';
-            
+
             // Bouton pour télécharger les données
             html += `
                 <div style="margin-top: 30px; text-align: center;">
@@ -269,13 +292,13 @@
                     </button>
                 </div>
             `;
-            
+
             resultsDiv.innerHTML = html;
-            
+
             // Stocker les données pour le download
             window.currentTop50Data = players;
         }
-        
+
         function displayPlayers(players, title) {
             const resultsDiv = document.getElementById('results');
             
