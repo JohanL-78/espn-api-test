@@ -47,7 +47,7 @@ async function fetchESPNData(sortBy = 'offensive.avgPoints:desc', limit = 50, se
     }
 }
 
-// Parser les données des joueurs (VERSION ENRICHIE avec photos et logos)
+// Parser les données des joueurs (VERSION CORRIGÉE - même logique que HTML local)
 function parsePlayerData(playerData, globalCategories = []) {
     const athlete = playerData.athlete || {};
     const team = athlete.team || {};
@@ -62,33 +62,21 @@ function parsePlayerData(playerData, globalCategories = []) {
         teamAbbr: team.abbreviation || 'N/A',
         position: athlete.position?.displayName || 'N/A',
         
-        // 📸 NOUVELLES PROPRIÉTÉS : Photos et logos
+        // 📸 CORRECTION : même logique que fichier HTML local qui marche
         photo: athlete.headshot?.href || null,
-        teamLogo: null, // sera défini ci-dessous
+        logo: athlete.teamLogos?.[0]?.href || null,  // ✅ FIX: utilise athlete.teamLogos comme dans votre version locale
         teamColor: team.color || null,
         teamAlternateColor: team.alternateColor || null
     };
     
-    // 🏆 Récupérer le logo de l'équipe (plusieurs sources possibles)
-    if (team.logos && Array.isArray(team.logos) && team.logos.length > 0) {
-        // Préférer le logo le plus grand disponible
-        const logos = team.logos.sort((a, b) => (b.width || 0) - (a.width || 0));
-        player.teamLogo = logos[0].href;
-    } else if (team.logo) {
-        player.teamLogo = team.logo;
-    }
-    
-    // 🔍 Debug pour voir la structure des données (à retirer en production)
+    // 🔍 Debug pour voir la structure des données
     if (process.env.NODE_ENV !== 'production') {
         console.log(`🔍 Player: ${player.name}`);
         console.log(`📸 Photo: ${player.photo ? 'Found' : 'Missing'}`);
-        console.log(`🏆 Team Logo: ${player.teamLogo ? 'Found' : 'Missing'}`);
-        if (!player.photo) {
-            console.log('📸 Headshot structure:', athlete.headshot);
-        }
-        if (!player.teamLogo) {
-            console.log('🏆 Team logos structure:', team.logos);
-            console.log('🏆 Team logo direct:', team.logo);
+        console.log(`🏆 Logo: ${player.logo ? 'Found' : 'Missing'}`);
+        console.log(`🏀 TeamLogos array length: ${athlete.teamLogos?.length || 0}`);
+        if (athlete.teamLogos && athlete.teamLogos.length > 0) {
+            console.log(`🏆 First logo URL: ${athlete.teamLogos[0]?.href}`);
         }
     }
     
@@ -140,7 +128,7 @@ function validateImageUrl(url) {
     return null;
 }
 
-// Fonction principale pour scraper les top scorers (VERSION ENRICHIE)
+// Fonction principale pour scraper les top scorers (VERSION CORRIGÉE)
 async function scrapeTop50Scorers() {
     console.log('🏆 Starting NBA Top 50 Scorers scrape...');
     
@@ -154,9 +142,9 @@ async function scrapeTop50Scorers() {
         const players25Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 25).length;
         const players30Plus = players.filter(p => (p.offensive_points_per_game || 0) >= 30).length;
         
-        // 📸 Stats sur les images
+        // 📸 Stats sur les images (CORRIGÉ : utilise 'logo' au lieu de 'teamLogo')
         const playersWithPhotos = players.filter(p => p.photo).length;
-        const playersWithTeamLogos = players.filter(p => p.teamLogo).length;
+        const playersWithTeamLogos = players.filter(p => p.logo).length;  // ✅ FIX: utilise 'logo'
         
         const scrapedData = {
             metadata: {
@@ -180,7 +168,7 @@ async function scrapeTop50Scorers() {
                         points: players[0]?.offensive_points_per_game,
                         team: players[0]?.team,
                         photo: players[0]?.photo,
-                        teamLogo: players[0]?.teamLogo
+                        teamLogo: players[0]?.logo  // ✅ FIX: utilise 'logo'
                     }
                 }
             },
@@ -208,17 +196,17 @@ async function scrapeTop50Scorers() {
         console.log(`🔥 Players with 25+ PPG: ${players25Plus}`);
         console.log(`🚀 Players with 30+ PPG: ${players30Plus}`);
         
-        // 📸 Nouvelles stats sur les images
+        // 📸 Nouvelles stats sur les images (CORRIGÉ)
         console.log(`\n📸 IMAGE STATS:`);
         console.log(`📷 Players with photos: ${playersWithPhotos}/${players.length} (${Math.round((playersWithPhotos / players.length) * 100)}%)`);
         console.log(`🏆 Players with team logos: ${playersWithTeamLogos}/${players.length} (${Math.round((playersWithTeamLogos / players.length) * 100)}%)`);
         
         // Lister quelques exemples d'URLs pour vérification
         console.log(`\n🔗 SAMPLE URLS:`);
-        const samplePlayer = players.find(p => p.photo && p.teamLogo);
+        const samplePlayer = players.find(p => p.photo && p.logo);  // ✅ FIX: utilise 'logo'
         if (samplePlayer) {
             console.log(`📸 Sample photo: ${samplePlayer.photo}`);
-            console.log(`🏆 Sample logo: ${samplePlayer.teamLogo}`);
+            console.log(`🏆 Sample logo: ${samplePlayer.logo}`);  // ✅ FIX: utilise 'logo'
         }
         
         return scrapedData;
@@ -229,7 +217,7 @@ async function scrapeTop50Scorers() {
     }
 }
 
-// Scraper d'autres catégories (VERSION ENRICHIE)
+// Scraper d'autres catégories (VERSION CORRIGÉE)
 async function scrapeOtherStats() {
     console.log('\n📊 Scraping additional stats...');
     
