@@ -4,7 +4,7 @@ const path = require('path');
 // Configuration
 const ESPN_API = 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete';
 const DATA_DIR = 'data';
-const CURRENT_SEASON = '2024';
+const CURRENT_SEASON = '2025';
 
 // Créer le dossier data s'il n'existe pas
 if (!fs.existsSync(DATA_DIR)) {
